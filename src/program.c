@@ -425,12 +425,23 @@ osl_loop_p pluto_get_parallel_loop_list(const PlutoProg *prog)
 
         newloop->nb_stmts = ploops[i]->nstmts;
         newloop->stmt_ids = malloc(ploops[i]->nstmts*sizeof(int));
+        int max_depth = 0;
         for (j=0; j<ploops[i]->nstmts; j++) {
-            newloop->stmt_ids[j] = ploops[i]->stmts[j]->id+1;
+            Stmt *stmt = ploops[i]->stmts[j];
+            newloop->stmt_ids[j] = stmt->id+1;
+
+            if (stmt->trans->nrows > max_depth) max_depth = stmt->trans->nrows;
         }
 
-        newloop->private_vars = strdup("lbv,ubv");
         newloop->directive   += CLAST_PARALLEL_OMP;
+        char *private_vars = malloc(128);
+        strcpy(private_vars, "lbv,ubv");
+        int depth = ploops[i]->depth+1;
+        for (depth++;depth<=max_depth;depth++) {
+          sprintf(private_vars+strlen(private_vars), ",t%d", depth);
+        }
+        newloop->private_vars = strdup(private_vars);
+        free(private_vars);
 
         //add new loop to looplist
         osl_loop_add(newloop, &ret_loop);
