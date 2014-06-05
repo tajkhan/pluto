@@ -404,7 +404,7 @@ osl_loop_p pluto_get_vector_loop_list( const PlutoProg *prog)
 /*
  * get a list of to-be-parallelized loops frop PlutoProg
  */
-osl_loop_p pluto_get_parallel_loop_list(const PlutoProg *prog)
+osl_loop_p pluto_get_parallel_loop_list(const PlutoProg *prog, int vecloops)
 {
     int i, j, nploops;
     osl_loop_p ret_loop = NULL;
@@ -435,11 +435,14 @@ osl_loop_p pluto_get_parallel_loop_list(const PlutoProg *prog)
 
         newloop->directive   += CLAST_PARALLEL_OMP;
         char *private_vars = malloc(128);
-        strcpy(private_vars, "lbv,ubv");
+        private_vars[0] = '\0';
+        if (vecloops) strcpy(private_vars, "lbv,ubv,");
         int depth = ploops[i]->depth+1;
         for (depth++;depth<=max_depth;depth++) {
-          sprintf(private_vars+strlen(private_vars), ",t%d", depth);
+          sprintf(private_vars+strlen(private_vars), "t%d,", depth);
         }
+        if(strlen(private_vars))
+          private_vars[strlen(private_vars)-1] = '\0'; //remove last comma
         newloop->private_vars = strdup(private_vars);
         free(private_vars);
 
@@ -542,13 +545,13 @@ void pluto_populate_scop (osl_scop_p scop, PlutoProg *prog,
 
     //update loop information
     //get loops to be marked for parallization and vectorization
-    osl_loop_p pll = NULL;
-    if(options->parallel){
-      pll = pluto_get_parallel_loop_list(prog);
-    }
     osl_loop_p vll = NULL;
     if (options->prevector ){
       vll = pluto_get_vector_loop_list(prog);
+    }
+    osl_loop_p pll = NULL;
+    if(options->parallel){
+      pll = pluto_get_parallel_loop_list(prog, vll!=NULL);
     }
     //concatenate the two lists
     osl_loop_add(vll, &pll);
